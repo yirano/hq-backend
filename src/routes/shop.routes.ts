@@ -47,7 +47,7 @@ export default function (router: Router) {
     }
 
     const products = await db('products')
-      .whereIn('id', cart.map(item => item.product_id))
+      .whereIn('id', cart.map(item => item.id))
       .andWhere('vendor_id', vendorId);
 
     if (products.length !== cart.length) {
@@ -69,7 +69,7 @@ export default function (router: Router) {
     const orderItems = cart.map((item: CartItem) => ({
       id: orderId++,
       order_id: order.id,
-      product_id: item.product_id,
+      product_id: item.id,
       quantity: item.quantity
     }));
 

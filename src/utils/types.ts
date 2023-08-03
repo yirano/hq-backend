@@ -3,7 +3,7 @@ export type VendorId = number;
 export type LocationId = number;
 
 export interface CartItem {
-  product_id: number;
+  id: number;
   quantity: number;
 }
 
