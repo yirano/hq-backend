@@ -1,7 +1,6 @@
 import { Request, Response, Router } from 'express';
 import knex, { Knex } from 'knex';
 import knexConfig from "../../database/knexfile";
-// import { CartItem, isVendorLocationParams } from "../utils/types";
 import { Orders, isVendorLocationParams } from "../utils/types";
 
 const db = knex(knexConfig);
@@ -67,46 +66,56 @@ export default function (router: Router) {
     const orders = _req.body;
     const { cart, customer_name, total } = orders;
     const result: Orders[] = [];
-    await db.transaction(async trx => {
-      for (const item of cart) {
-        const { id, vendor_id, location_id } = item;
 
-        // Validate that product is available at vendor 
-        const product = await trx('products').where({ id, vendor_id }).first();
-        if (!product) {
-          return res.status(400).json({ message: 'Product is not available at this vendor.' });
+    try {
+      await db.transaction(async trx => {
+        for (const item of cart) {
+          const { id, vendor_id, location_id } = item;
+
+          // Validate that product is available at vendor 
+          const product = await trx('products').where({ id, vendor_id }).first();
+          if (!product) {
+            return res.status(400).json({ message: 'Product is not available at this vendor.' });
+          }
+
+          // Validate that vendor is assigned to location
+          const vendor = await trx('vendors_locations').where({ vendor_id, location_id }).first();
+          if (!vendor) {
+            return res.status(400).json({ message: 'Vendor is not assigned to this location.' });
+          }
         }
-
-        // Validate that vendor is assigned to location
-        const vendor = await trx('vendors_locations').where({ vendor_id, location_id }).first();
-        if (!vendor) {
-          return res.status(400).json({ message: 'Vendor is not assigned to this location.' });
-        }
-      }
-      // Add order to orders table
-      let orderId = Math.floor(Date.now() / 1000);
-      const [order] = await trx('orders')
-        .insert({
-          id: orderId,
-          customer_name: customer_name,
-          total: total,
-        })
-        .returning('*');
-
-      for (const item of cart) {
-        const { id, quantity } = item;
-        await trx('order_items')
+        // Add order to orders table
+        let orderId = Math.floor(Date.now() / 1000);
+        const [order] = await trx('orders')
           .insert({
-            id: orderId++,
-            product_id: id,
-            quantity: quantity,
-            order_id: order.id,
-          });
-      }
+            id: orderId,
+            customer_name: customer_name,
+            total: total,
+          })
+          .returning('*');
 
-      result.push(order);
-    });
-    return res.status(201).json(result);
+        for (const item of cart) {
+          const { id, quantity } = item;
+          await trx('order_items')
+            .insert({
+              id: orderId++,
+              product_id: id,
+              quantity: quantity,
+              order_id: order.id,
+            });
+        }
+
+        result.push(order);
+      });
+      return res.status(201).json({ success: true, result });
+
+    } catch (err) {
+      const error = err as Error;
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
   });
 }
 
