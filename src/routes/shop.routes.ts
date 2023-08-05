@@ -67,16 +67,29 @@ export default function (router: Router) {
     const orders = _req.body;
     const { cart, customer_name, total } = orders;
     const result: Orders[] = [];
-
     await db.transaction(async trx => {
-      let orderId = Math.floor(Date.now() / 1000);
+      for (const item of cart) {
+        const { id, vendor_id, location_id } = item;
 
+        // Validate that product is available at vendor 
+        const product = await trx('products').where({ id, vendor_id }).first();
+        if (!product) {
+          return res.status(400).json({ message: 'Product is not available at this vendor.' });
+        }
+
+        // Validate that vendor is assigned to location
+        const vendor = await trx('vendors_locations').where({ vendor_id, location_id }).first();
+        if (!vendor) {
+          return res.status(400).json({ message: 'Vendor is not assigned to this location.' });
+        }
+      }
+      // Add order to orders table
+      let orderId = Math.floor(Date.now() / 1000);
       const [order] = await trx('orders')
         .insert({
           id: orderId,
           customer_name: customer_name,
           total: total,
-          location_id: cart[0].location_id
         })
         .returning('*');
 
