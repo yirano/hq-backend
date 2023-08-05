@@ -2,6 +2,12 @@
 export type VendorId = number;
 export type LocationId = number;
 
+export type Orders = {
+  cart: CartItem[];
+  customer_name: string;
+  total: number;
+};
+
 export interface CartItem {
   id: number;
   quantity: number;
